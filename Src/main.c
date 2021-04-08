@@ -94,6 +94,8 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  CLI_Init(&huart2);
+
 
   struct Log {
       uint32_t time;
@@ -136,12 +138,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      CLI_print_mem_content(&huart2, &log, log_cli_desc, NUM_LOG_FIELDS);
+      CLI_print_mem_content(&log, log_cli_desc, NUM_LOG_FIELDS);
 
       HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
       log.temp++;
-      log.time = log.time + 20;
+      log.time = HAL_GetTick();
       HAL_Delay(1000);
+      // CLI process
 
     /* USER CODE END WHILE */
 

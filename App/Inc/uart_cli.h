@@ -46,9 +46,15 @@ struct CLI_field_descriptor {
     uint16_t                        num_elements;               // number of variables in array, 1 for single variables
 };
 
+/* === exported functions === */
+
+/** @brief cli initialization function
+ * @param huart - uart handle
+ * @retval void  */
+void CLI_Init(UART_HandleTypeDef *huart);
 
 /* print memory content in blocking mode */
-bool CLI_print_mem_content(UART_HandleTypeDef *huart, void *mem_p,  struct CLI_field_descriptor *descriptor, uint16_t num_elements);
+bool CLI_print_mem_content(void *mem_p,  struct CLI_field_descriptor *descriptor, uint16_t num_elements);
 
 #ifndef APP_INC_UART_CLI_C_
 #define APP_INC_UART_CLI_C_
