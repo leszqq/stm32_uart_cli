@@ -4,12 +4,15 @@
  *  Created on: Mar 25, 2021
  *      Author: Wiktor Lechowicz
  */
+#define BACKSPACE 127
+#define DELETE    0x7F
 
 /* private includes */
 #include "uart_cli.h"
 #include <stdint.h>
 #include "string.h"
 #include "stm32f3xx.h"
+#include "main.h"
 
 /* private defines */
 #define MAX_LINE_LEN                        40
@@ -20,12 +23,17 @@
 static struct cli {
     UART_HandleTypeDef      *huart;
     char                    message_buff[BUFF_LEN];
+    char                    received_buff[BUFF_LEN];
+    uint8_t                 received_index;
 } base;
 
 /* exported functions */
 void CLI_Init(UART_HandleTypeDef *huart)
 {
     base.huart = huart;
+    base.received_index = 0;
+
+    HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.message_buff[0], 1);
 }
 
 bool CLI_print_mem_content(void *mem_p,  struct CLI_field_descriptor *descriptor, uint16_t num_elements)
@@ -128,6 +136,22 @@ void USART2_IRQHandler(void)
   /* USER CODE BEGIN USART2_IRQn 1 */
 
   /* USER CODE END USART2_IRQn 1 */
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+    if(huart == base.huart){
+        if(base.received_buff[base.received_index] == BACKSPACE){
+            HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+            uint8_t temp = '\b';
+            HAL_UART_Transmit_IT(base.huart, (uint8_t *)&temp, 1);
+            HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
+        } else {
+            HAL_UART_Transmit_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index ], 1);
+            base.received_index++;
+            HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
+        }
+
+    }
 }
 
 
