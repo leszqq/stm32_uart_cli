@@ -154,7 +154,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
                 PRINT("\b \b");
                 base.received_index--;
             }
-            HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
 
         } else if ( base.received_buff[base.received_index] == ENTER){
             if(base.received_index == 0){
@@ -181,13 +180,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
                 PRINT("\n\rwrong command\n\r>>");
             }
             base.received_index = 0;
-            HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
 
         }else {
              HAL_UART_Transmit_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
              base.received_index++;
-             HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
         }
+        HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
     }
 }
 
