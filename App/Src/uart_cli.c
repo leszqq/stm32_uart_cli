@@ -5,7 +5,14 @@
  *      Author: Wiktor Lechowicz
  */
 #define BACKSPACE 127
+#define ENTER     13
 #define DELETE    0x7F
+
+/* === private macros === */
+#define PRINT(S, ...) do { \
+                            while(!(base.huart->gState == HAL_UART_STATE_READY)){};\
+                            HAL_UART_Transmit_DMA(base.huart,(uint8_t*) base.message_buff, snprintf(base.message_buff, MESSAGE_BUFF_LEN, S, ##__VA_ARGS__)); \
+                         }while(0)
 
 /* private includes */
 #include "uart_cli.h"
@@ -19,30 +26,27 @@
 #define MESSAGE_BUFF_LEN                   400
 #define RECEIVED_BUFF_LEN                   30
 
-/* private variables */
+/* === private variables === */
 
 static struct cli {
-    UART_HandleTypeDef      *huart;
-    char                    message_buff[MESSAGE_BUFF_LEN];
-    char                    received_buff[MESSAGE_BUFF_LEN];
-    uint8_t                 received_index;
+    UART_HandleTypeDef              *huart;
+    void                            *mem_p;
+    struct CLI_field_descriptor     *mem_descriptor;
+    uint16_t                        num_mem_elements;
+    char                            message_buff[MESSAGE_BUFF_LEN];
+    char                            received_buff[MESSAGE_BUFF_LEN];
+    uint8_t                         received_index;
 } base;
 
-/* exported functions */
-void CLI_Init(UART_HandleTypeDef *huart)
+/* === static functions === */
+/* print memory content */
+static void print_mem_content(void *mem_p,  struct CLI_field_descriptor *descriptor, uint16_t num_elements)
 {
-    base.huart = huart;
-    base.received_index = 0;
+    assert_param(descriptor);
 
-    HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[0], 1);
-}
-
-bool CLI_print_mem_content(void *mem_p,  struct CLI_field_descriptor *descriptor, uint16_t num_elements)
-{
-
-    if(mem_p == NULL || descriptor == NULL) return false;
-
-    uint16_t message_len = 0;
+    uint16_t message_len = 2;
+    base.message_buff[0] = '\n';
+    base.message_buff[1] = '\r';
     for(uint16_t i = 0; i < num_elements; i++){
 
         for(uint16_t j = 0; j < descriptor[i].num_elements; j++){
@@ -122,38 +126,65 @@ bool CLI_print_mem_content(void *mem_p,  struct CLI_field_descriptor *descriptor
     base.message_buff[message_len++] = '\r';
     HAL_UART_Transmit_DMA(base.huart, (uint8_t*)&base.message_buff, message_len);
 
-    return true;
+    return;
 }
 
-/**
-  * @brief This function handles USART2 global interrupt.
-  */
-void USART2_IRQHandler(void)
+/* === exported functions === */
+void CLI_Init(UART_HandleTypeDef *huart, void *mem_p, struct CLI_field_descriptor *descriptor, uint16_t num_elements)
 {
-  /* USER CODE BEGIN USART2_IRQn 0 */
+    assert_param(huart);
+    assert_param(mem_p);
+    assert_param(descriptor);
 
-  /* USER CODE END USART2_IRQn 0 */
-  HAL_UART_IRQHandler(base.huart);
-  /* USER CODE BEGIN USART2_IRQn 1 */
+    base.huart = huart;
+    base.mem_p = mem_p;
+    base.mem_descriptor = descriptor;
+    base.num_mem_elements = num_elements;
+    base.received_index = 0;
 
-  /* USER CODE END USART2_IRQn 1 */
+    HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[0], 1);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+
     if(huart == base.huart){
         if(base.received_buff[base.received_index] == BACKSPACE){
-            HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-            uint8_t temp[3] = "\b \b";
-            HAL_UART_Transmit_IT(base.huart, (uint8_t *)&temp, 3);
-            base.received_index--;
+            PRINT("\b \b");
+            if(base.received_index > 0) base.received_index--;
             HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
-        } else {
-            HAL_UART_Transmit_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index ], 1);
-            base.received_index++;
-            HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
-        }
 
+        } else if ( base.received_buff[base.received_index] == ENTER){
+            if(base.received_index == 0){
+                PRINT("\n\r");
+
+            }else if(strncmp((char *)&base.received_buff, "LED ON", 6) == 0){
+                HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+                PRINT("\n\r");
+
+            }else if(strncmp((char *)&base.received_buff, "LED OFF", 7) == 0) {
+                HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+                PRINT("\n\r");
+
+            }else if(strncmp((char*)&base.received_buff, "HELP", 4) == 0) {
+                PRINT("\n\ravailable commands:\n\r"
+                        "LED ON\n\r"
+                        "LED OFF\n\r"
+                        "HELP\n\r"
+                        "PRINT MEM\n\r");
+
+            } else if(strncmp((char*)&base.received_buff, "PRINT MEM", 9) == 0) {
+                print_mem_content(base.mem_p, base.mem_descriptor, base.num_mem_elements);
+            } else{
+                PRINT("\n\rwrong command\n\r\a");
+            }
+            base.received_index = 0;
+            HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
+
+        }else {
+             HAL_UART_Transmit_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
+             base.received_index++;
+             HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
+        }
     }
 }
-
 

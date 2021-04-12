@@ -9,9 +9,7 @@
  *          * HOW TO USE *
  *          Create struct CLI_field_destrictor array to describe content of memory with tag strings and type specifiers CLI_field_type.
  *
- *          To print content of memory use CLI_print_mem_content function passing pointer to memory space, reference to array of CLI_field_descriptor,
- *          and number of array elements.
- *
+ *          Initialize CLI (CLI_Init()) with just created memory descriptor.
  *          Example in main.c
  */
 
@@ -49,16 +47,14 @@ struct CLI_field_descriptor {
 /* === exported functions === */
 
 /** @brief cli initialization function
- * @param huart - uart handle
+ * @param huart         - uart handle
+ * @param mem_p         - pointer to printed out memory content
+ * @param descriptor    - pointer to memory descriptor struct
+ * @param num_elements  - number of variables in printed memory space
  * @retval void  */
-void CLI_Init(UART_HandleTypeDef *huart);
-
-/* print memory content in blocking mode */
-bool CLI_print_mem_content(void *mem_p,  struct CLI_field_descriptor *descriptor, uint16_t num_elements);
+void CLI_Init(UART_HandleTypeDef *huart, void *mem_p, struct CLI_field_descriptor *descriptor, uint16_t num_elements);
 
 #ifndef APP_INC_UART_CLI_C_
 #define APP_INC_UART_CLI_C_
-
-
 
 #endif /* APP_INC_UART_CLI_C_ */
