@@ -122,8 +122,7 @@ static void print_mem_content(void *mem_p,  struct CLI_field_descriptor *descrip
 
     }
     /* transmit whole buffer using DMA */
-    base.message_buff[message_len++] = '\n';
-    base.message_buff[message_len++] = '\r';
+    message_len += snprintf(&base.message_buff[message_len], MAX_LINE_LEN, "\n\r>>");
     HAL_UART_Transmit_DMA(base.huart, (uint8_t*)&base.message_buff, message_len);
 
     return;
@@ -142,6 +141,8 @@ void CLI_Init(UART_HandleTypeDef *huart, void *mem_p, struct CLI_field_descripto
     base.num_mem_elements = num_elements;
     base.received_index = 0;
 
+    PRINT("Type in HELP for command list\n\r>>");
+
     HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[0], 1);
 }
 
@@ -149,33 +150,35 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 
     if(huart == base.huart){
         if(base.received_buff[base.received_index] == BACKSPACE){
-            PRINT("\b \b");
-            if(base.received_index > 0) base.received_index--;
+            if(base.received_index > 0) {
+                PRINT("\b \b");
+                base.received_index--;
+            }
             HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
 
         } else if ( base.received_buff[base.received_index] == ENTER){
             if(base.received_index == 0){
-                PRINT("\n\r");
+                PRINT("\n\r>>");
 
             }else if(strncmp((char *)&base.received_buff, "LED ON", 6) == 0){
                 HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-                PRINT("\n\r");
+                PRINT("\n\r>>");
 
             }else if(strncmp((char *)&base.received_buff, "LED OFF", 7) == 0) {
                 HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-                PRINT("\n\r");
+                PRINT("\n\r>>");
 
             }else if(strncmp((char*)&base.received_buff, "HELP", 4) == 0) {
                 PRINT("\n\ravailable commands:\n\r"
                         "LED ON\n\r"
                         "LED OFF\n\r"
                         "HELP\n\r"
-                        "PRINT MEM\n\r");
+                        "PRINT MEM\n\r>>");
 
             } else if(strncmp((char*)&base.received_buff, "PRINT MEM", 9) == 0) {
                 print_mem_content(base.mem_p, base.mem_descriptor, base.num_mem_elements);
             } else{
-                PRINT("\n\rwrong command\n\r\a");
+                PRINT("\n\rwrong command\n\r>>");
             }
             base.received_index = 0;
             HAL_UART_Receive_IT(base.huart, (uint8_t *)&base.received_buff[base.received_index], 1);
